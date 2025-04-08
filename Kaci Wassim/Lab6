@@ -1,0 +1,123 @@
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+
+contract Lab6Combined is ERC721 {
+
+    // ====== Exercise 1–3 ======
+    uint public idDigits = 16;
+    uint public idModulus = 10 ** idDigits;
+
+    // ====== Exercise 4 ======
+    struct Product {
+        string name;
+        uint id;
+    }
+
+    // ====== Exercise 5 ======
+    Product[] public products;
+
+    // ====== Exercise 10 ======
+    mapping(uint => address) public productToOwner;
+    mapping(address => uint) public ownerProductCount;
+
+    // ====== Exercise 9 ======
+    event NewProduct(uint productIndex, string name, uint id);
+
+    // ====== Constructor for ERC721 (Exercise 13) ======
+    constructor() ERC721("MyNFT", "MNFT") {
+        _mint(msg.sender, 1); // Mint token ID 1 to deployer
+        owner = msg.sender;
+        users[owner].tokens = 100;
+    }
+
+    // ====== Exercise 6, 9, 11 ======
+    function _createProduct(string memory _name, uint _id) private {
+        products.push(Product(_name, _id));
+        uint productId = products.length - 1;
+        emit NewProduct(productId, _name, _id);
+        productToOwner[productId] = msg.sender;
+        ownerProductCount[msg.sender]++;
+    }
+
+    // ====== Exercise 7 & 8 ======
+    function _generateRandomId(string memory _str) private view returns (uint) {
+        uint rand = uint(keccak256(abi.encodePacked(_str)));
+        return rand % idModulus;
+    }
+
+    function createRandomProduct(string memory _name) public {
+        uint randId = _generateRandomId(_name);
+        _createProduct(_name, randId);
+    }
+
+    // ====== Exercise 12 ======
+    function getProductsByOwner(address _owner) external view returns (uint[] memory) {
+        uint count = ownerProductCount[_owner];
+        uint[] memory result = new uint[](count);
+        uint counter = 0;
+        for (uint i = 0; i < products.length; i++) {
+            if (productToOwner[i] == _owner) {
+                result[counter] = i;
+                counter++;
+            }
+        }
+        return result;
+    }
+
+    // ====== Exercise 14 ======
+    mapping(uint => uint) public age;
+
+    modifier olderThan(uint _age, uint _userId) {
+        require(age[_userId] >= _age, "User is not old enough");
+        _;
+    }
+
+    function validationUsers(uint _userId) public view olderThan(18, _userId) {}
+
+    function setAge(uint _userId, uint _age) public {
+        age[_userId] = _age;
+    }
+
+    // ====== Exercise 15 ======
+    address public owner;
+
+    struct Receivers {
+        string name;
+        uint256 tokens;
+    }
+
+    mapping(address => Receivers) public users;
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not the contract owner");
+        _;
+    }
+
+    function double(uint _value) public pure returns (uint) {
+        return _value * 2;
+    }
+
+    function register(string memory _name) public {
+        users[msg.sender].name = _name;
+    }
+
+    function giveToken(address _receiver, uint256 _amount) public onlyOwner {
+        require(users[owner].tokens >= _amount, "Not enough tokens");
+        users[owner].tokens -= _amount;
+        users[_receiver].tokens += _amount;
+    }
+
+    function buyToken() public payable {
+        require(msg.value >= 2 ether, "Minimum 2 ether required");
+        uint256 tokensToBuy = msg.value / 2 ether;
+        require(users[owner].tokens >= tokensToBuy, "Owner does not have enough tokens");
+        users[owner].tokens -= tokensToBuy;
+        users[msg.sender].tokens += tokensToBuy;
+    }
+
+    function getContractBalance() public view returns (uint) {
+        return address(this).balance;
+    }
+}
